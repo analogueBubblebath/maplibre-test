@@ -98,6 +98,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
 
         Column(
             modifier = Modifier.align(Alignment.CenterEnd),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             OnMapButton(
                 onClick = { viewModel.handleIntent(MainScreenIntent.ShowLayersDialog) }) {
@@ -111,6 +112,10 @@ fun MainScreen(modifier: Modifier = Modifier) {
             OnMapButton(onClick = { viewModel.handleIntent(MainScreenIntent.LoadPath) }) {
                 Icon(imageVector = Icons.Filled.LocationOn, contentDescription = null)
             }
+
+            VerticalSlider(modifier = Modifier.width(200.dp), value = uiState.lineColor, onValueChange ={
+                viewModel.handleIntent(MainScreenIntent.ChangeLineColor(newValue = it))
+            })
         }
 
         Column(

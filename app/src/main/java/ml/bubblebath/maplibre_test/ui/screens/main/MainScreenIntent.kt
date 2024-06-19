@@ -4,6 +4,7 @@ import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.plugins.scalebar.ScaleBarPlugin
 
 sealed interface MainScreenIntent {
+    data class ChangeLineColor(val newValue: Float) : MainScreenIntent
     data object LoadPath : MainScreenIntent
     data object SavePath : MainScreenIntent
     data object ShowLayersDialog : MainScreenIntent

@@ -1,14 +1,16 @@
 package ml.bubblebath.maplibre_test.ui.screens.main
 
 import android.os.Environment
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import ml.bubblebath.maplibre_test.model.DistanceCalculator
 import ml.bubblebath.maplibre_test.model.DistanceUnits
 import ml.bubblebath.maplibre_test.model.TileSetScheme
-import ml.bubblebath.maplibre_test.model.hide
-import ml.bubblebath.maplibre_test.model.show
+import ml.bubblebath.maplibre_test.ui.hide
+import ml.bubblebath.maplibre_test.ui.setLineColor
+import ml.bubblebath.maplibre_test.ui.show
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdate
 import org.maplibre.android.geometry.LatLng
@@ -118,7 +120,14 @@ class MainScreenViewModel(private val distanceCalculator: DistanceCalculator) : 
             is MainScreenIntent.ChangeLayerOpacity -> changeLayerOpacity(intent.newOpacity)
             MainScreenIntent.SavePath -> savePath()
             MainScreenIntent.LoadPath -> loadPath()
+            is MainScreenIntent.ChangeLineColor -> changeLineColor(intent.newValue)
         }
+    }
+
+    private fun changeLineColor(newValue: Float) {
+        val color = Color.hsv(0f, 0f, newValue)
+        lineLayer.setLineColor(color)
+        _uiState.value = uiState.value.copy(lineColor = newValue)
     }
 
     private fun loadPath() {

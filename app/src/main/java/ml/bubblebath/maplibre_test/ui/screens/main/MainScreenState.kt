@@ -11,5 +11,6 @@ data class MainScreenState(
     val zoom: String = "-",
     val distanceBetweenTwoLast: String = "-",
     val totalDistance: String = "-",
-    val layerOpacity: Float = 1f
+    val layerOpacity: Float = 1f,
+    val lineColor: Float = 0f
 )
