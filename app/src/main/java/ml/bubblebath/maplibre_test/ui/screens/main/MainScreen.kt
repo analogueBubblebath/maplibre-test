@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -94,10 +96,21 @@ fun MainScreen(modifier: Modifier = Modifier) {
             }
         }
 
-        OnMapButton(
+        Column(
             modifier = Modifier.align(Alignment.CenterEnd),
-            onClick = { viewModel.handleIntent(MainScreenIntent.ShowLayersDialog) }) {
-            Icon(imageVector = Icons.Filled.List, contentDescription = null)
+        ) {
+            OnMapButton(
+                onClick = { viewModel.handleIntent(MainScreenIntent.ShowLayersDialog) }) {
+                Icon(imageVector = Icons.Filled.Menu, contentDescription = null)
+            }
+
+            OnMapButton(onClick = { viewModel.handleIntent(MainScreenIntent.SavePath) }) {
+                Icon(imageVector = Icons.Filled.Create, contentDescription = null)
+            }
+
+            OnMapButton(onClick = { viewModel.handleIntent(MainScreenIntent.LoadPath) }) {
+                Icon(imageVector = Icons.Filled.LocationOn, contentDescription = null)
+            }
         }
 
         Column(

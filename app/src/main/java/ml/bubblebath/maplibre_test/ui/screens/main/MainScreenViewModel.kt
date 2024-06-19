@@ -7,12 +7,15 @@ import kotlinx.coroutines.flow.StateFlow
 import ml.bubblebath.maplibre_test.model.DistanceCalculator
 import ml.bubblebath.maplibre_test.model.DistanceUnits
 import ml.bubblebath.maplibre_test.model.TileSetScheme
+import ml.bubblebath.maplibre_test.model.hide
+import ml.bubblebath.maplibre_test.model.show
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdate
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
 import org.maplibre.android.plugins.scalebar.ScaleBarPlugin
+import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.PropertyValue
@@ -33,7 +36,7 @@ class MainScreenViewModel(private val distanceCalculator: DistanceCalculator) : 
     2. Make UI for save/load GeoJSON
      */
     companion object {
-        private const val OSM_TILES_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        private const val OSM_TILES_URL = "https://tile.opentopomap.org/{z}/{x}/{y}.png"
         private const val TILEJSON_VER = "2.0.0"
         private const val GEO_JSON_SOURCE_ID = "GEO_JSON_SOURCE_ID"
         private const val OSM_SOURCE_ID = "OSM_SOURCE_ID"
@@ -53,6 +56,10 @@ class MainScreenViewModel(private val distanceCalculator: DistanceCalculator) : 
 
     private val tilesDir =
         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+
+    //temporal mock for saved GeoJSON
+    private val serializedFeatures = mutableListOf<String>()
+
     //lateinit, потому что слои должны создаваться в UI потоке
     //у koin свои потоки для инициализации зависимостей
     //если создавать слои прям тут, то maplibre бросит исключение
@@ -78,11 +85,12 @@ class MainScreenViewModel(private val distanceCalculator: DistanceCalculator) : 
         //если создавать RasterSource из URL, вместо TileSet, то невозможно будет задать схему (xyz/tms)
         val ts = TileSet(TILEJSON_VER, OSM_TILES_URL)
         ts.scheme = TileSetScheme.XYZ.toString()
-
         val styleBuilder = Style.Builder()
         styleBuilder.withSource(GeoJsonSource(GEO_JSON_SOURCE_ID))
         styleBuilder.withSource(RasterSource(OSM_SOURCE_ID, ts, OSM_TILE_SIZE))
         styleBuilder.withLayer(RasterLayer(OSM_LAYER_ID, OSM_SOURCE_ID))
+        styleBuilder.withLayerAbove(circleLayer, OSM_LAYER_ID)
+        styleBuilder.withLayerBelow(lineLayer, CIRCLE_LAYER_ID)
 
         mapLibreMap.setStyle(styleBuilder) {
             mapLibreMap.addOnMapClickListener { onMapClick(it) }
@@ -108,6 +116,32 @@ class MainScreenViewModel(private val distanceCalculator: DistanceCalculator) : 
             MainScreenIntent.HideLayersDialog -> hideLayersDialog()
             is MainScreenIntent.AddLayer -> addLayer(intent.sourcePath)
             is MainScreenIntent.ChangeLayerOpacity -> changeLayerOpacity(intent.newOpacity)
+            MainScreenIntent.SavePath -> savePath()
+            MainScreenIntent.LoadPath -> loadPath()
+        }
+    }
+
+    private fun loadPath() {
+        mapLibreMap.getStyle { style ->
+            val geoJsonSource = style.getSourceAs<GeoJsonSource>(GEO_JSON_SOURCE_ID)
+            geoJsonSource?.let { source ->
+                serializedFeatures.forEach { serializedFeature ->
+                    source.setGeoJson(serializedFeature)
+                }
+            }
+            circleLayer.show()
+            lineLayer.show()
+        }
+    }
+
+    private fun savePath() {
+        mapLibreMap.getStyle { style ->
+            val geoJsonSource = style.getSourceAs<GeoJsonSource>(GEO_JSON_SOURCE_ID)
+            val features = geoJsonSource?.querySourceFeatures(Expression.all())
+            val jsonFeatures = features?.map(Feature::toJson)
+            jsonFeatures?.let {
+                serializedFeatures.addAll(it)
+            }
         }
     }
 
@@ -127,15 +161,19 @@ class MainScreenViewModel(private val distanceCalculator: DistanceCalculator) : 
      */
     private fun rebuildStyle() {
         mapLibreMap.getStyle {
+            it.removeLayer(circleLayer)
+            it.removeLayer(lineLayer)
             if (it.getSource(USER_SOURCE_ID) != null && it.getLayer(USER_LAYER_ID) != null) {
                 it.removeLayer(USER_LAYER_ID)
                 it.removeSource(USER_SOURCE_ID)
+                it.addLayerAbove(circleLayer, OSM_LAYER_ID)
+                it.addLayerBelow(lineLayer, CIRCLE_LAYER_ID)
             } else {
-                userSource?.let { source ->
-                    it.addSource(source)
-                    userLayer?.let { layer ->
-                        it.addLayer(layer)
-                    }
+                if (userSource != null && userLayer != null) {
+                    it.addSource(userSource!!)
+                    it.addLayer(userLayer!!)
+                    it.addLayerAbove(circleLayer, USER_LAYER_ID)
+                    it.addLayerBelow(lineLayer, CIRCLE_LAYER_ID)
                 }
             }
         }
@@ -185,16 +223,8 @@ class MainScreenViewModel(private val distanceCalculator: DistanceCalculator) : 
 
             val features = FeatureCollection.fromFeatures(featureList)
             source?.setGeoJson(features)
-
-            if (it.getLayer(CIRCLE_LAYER_ID) == null && it.getLayer(LINE_LAYER_ID) == null) {
-                if (it.getLayer(USER_LAYER_ID) == null) {
-                    it.addLayerAbove(circleLayer, OSM_LAYER_ID)
-                    it.addLayerBelow(lineLayer, CIRCLE_LAYER_ID)
-                } else {
-                    it.addLayerAbove(circleLayer, USER_LAYER_ID)
-                    it.addLayerBelow(lineLayer, CIRCLE_LAYER_ID)
-                }
-            }
+            circleLayer.show()
+            lineLayer.show()
         }
 
         distanceCalculator.getDistance(DistanceUnits.KM)?.let {
@@ -247,10 +277,8 @@ class MainScreenViewModel(private val distanceCalculator: DistanceCalculator) : 
      */
     private fun clearPoints() {
         distanceCalculator.reset()
-        mapLibreMap.getStyle {
-            it.removeLayer(circleLayer)
-            it.removeLayer(lineLayer)
-        }
+        circleLayer.hide()
+        lineLayer.hide()
         _uiState.value = uiState.value.copy(distanceBetweenTwoLast = "-", totalDistance = "-")
     }
 
